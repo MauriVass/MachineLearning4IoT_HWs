@@ -40,9 +40,9 @@ with tf.io.TFRecordWriter(output_file) as writer:
         # Add the .wav size
         initial_size += os.path.getsize(input_path + audio_file)
 
-        # print(type(datetime),type(temperature),type(humidity),type(audio))
+        # print(int(datetime),type(datetime),type(temperature),type(humidity),type(audio))
 
-        date_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[datetime]))
+        date_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[int(datetime)]))
         temp_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[temperature]))
         humi_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[humidity]))
         audio_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[audio]))
