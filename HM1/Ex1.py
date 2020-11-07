@@ -7,7 +7,7 @@ import argparse
 parser = argparse.ArgumentParser()
 # Get input directory via '--input' argument
 parser.add_argument('--input', type=str)
-# Get output file via '--output' argument, the file must be .csv
+# Get output file via '--output' argument, the file must be .tfrecord
 parser.add_argument('--output', type=str)
 
 args = parser.parse_args()
