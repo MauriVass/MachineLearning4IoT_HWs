@@ -13,7 +13,7 @@ parser.add_argument('--output', type=str)
 args = parser.parse_args()
 
 # Get inputs from args
-input_path = args.input
+input_path = args.input + '/'
 output_file = args.output
 
 # Read all files in the input dir
