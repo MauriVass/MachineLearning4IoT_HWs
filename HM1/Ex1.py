@@ -26,41 +26,38 @@ file = open(input_path + csv_file, 'r')
 # Set the initial size equal to the .csv file
 initial_size = os.path.getsize(input_path + csv_file)
 
-"""Returns a bytes_list from a string / byte."""
-def _bytes_feature(value):
-    if isinstance(value, type(tf.constant(0))):
-        value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
 with tf.io.TFRecordWriter(output_file) as writer:
-    for f in file:
-        content = f.rstrip().split(',')
-        # Read a line. Format: date,time,temp,humi,wav_file
-        
-        temperature = int(content[2])
-        humidity = int(content[3])
-        audio_file = content[4]
-        date = datetime.datetime.fromtimestamp(os.stat(input_path + audio_file)[-1]).strftime('%d/%m/%Y,%H:%M:%S')
-        # Read .wav file
-        audio = tf.io.read_file(input_path + audio_file)
-        audio = audio.numpy()
-        # Add the .wav size
-        initial_size += os.path.getsize(input_path + audio_file)
+	for f in file:
+		content = f.rstrip().split(',')
+		# Read a line. Format: date(dd/mm/yyyy),time(hh:mm:ss),temp,humi,wav_file
+		entry_date = [int(x) for x in content[0].split('/')]
+		entry_time = [int(x) for x in content[1].split(':')]
+		timestamp = datetime.datetime(entry_date[2],entry_date[1],entry_date[0],entry_time[0],entry_time[1],entry_time[2])
+		timestamp_posix = int(time.mktime(timestamp.timetuple()))
+		temperature = int(content[2])
+		humidity = int(content[3])
+		audio_file = content[4]
 
-        print(date, type(datetime),type(temperature),type(humidity),type(audio))
+		# Read .wav file
+		audio = tf.io.read_file(input_path + audio_file)
+		audio = audio.numpy()
+		# Add the .wav size
+		initial_size += os.path.getsize(input_path + audio_file)
 
-#         date_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[int(datetime)]))
-        temp_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[temperature]))
-        humi_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[humidity]))
-        audio_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[audio]))
+		#print(type(timestamp_posix),type(temperature),type(humidity),type(audio))
 
-        mapping = {'datetime': _bytes_feature(date.encode()),
-                   'temperature': temp_feature,
-                   'humidity': humi_feature,
-                   'audio': audio_feature}
-        example = tf.train.Example(features=tf.train.Features(feature=mapping))
+		date_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[timestamp_posix]))
+		temp_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[temperature]))
+		humi_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[humidity]))
+		audio_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[audio]))
 
-        writer.write(example.SerializeToString())
+		mapping = {'datetime': date_feature,
+		       'temperature': temp_feature,
+		       'humidity': humi_feature,
+		       'audio': audio_feature}
+		example = tf.train.Example(features=tf.train.Features(feature=mapping))
+
+		writer.write(example.SerializeToString())
 
 file_size = os.path.getsize(output_file)
 print(f'Initial size {initial_size}, final size {file_size} Ratio {(file_size / initial_size):.4f}')
