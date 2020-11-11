@@ -6,6 +6,7 @@ import numpy as np
 import pyaudio
 import wave
 import tensorflow as tf
+import os #To Remove
 
 class Mic:
 	def __init__(self,dur,rate,res):
@@ -26,10 +27,12 @@ class Mic:
 				channels=self.channels,
 				rate= self.rate, input=True,
 				frames_per_buffer=self.chunk)
+		self.counter = 0
 
 	def Record(self,save=False):
 		time_start = time.time()
-		#frames = []
+		if(save):
+			frames = []
 		#audio = pyaudio.PyAudio()
 		#stream = audio.open(format=self.resolution,
 		#		channels=self.channels,
@@ -38,7 +41,7 @@ class Mic:
 
 		print('\n---	Recording Start	---')
 		max_val = int(self.rate / self.chunk * self.record_seconds)
-		#l = 0
+		l = 0
 		buffer = io.BytesIO()
 		#buffer.write(b'RIFF$w\x01\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80\xbb\x00\x00\x00w\x01\x00\x02\x00\x10\x00data\x00w\x01\x00')
 		self.stream.start_stream()
@@ -48,14 +51,13 @@ class Mic:
 			buffer.write(data)
 #			print(data,'\n')
 			#frames.append(int.from_bytes(data,'little'))
-			#frames.append(data)
-			#buffer.write(b'data')
-			#l += len(data)
+			if(save):
+				frames.append(data)
+				l += len(data)
 			#buffer.write(bytearray(data))
 		self.stream.stop_stream()
 		#stream.close()
 		#audio.terminate()
-
 
 		#time_end = time.time()
 		#elapsed_time = time_end - time_reg
@@ -65,29 +67,32 @@ class Mic:
 #		print(buffer.getvalue()[:60], type(buffer), type(buffer.getvalue()))
 #		print(l,len(frames),len(b'RIFF$w\x01\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80\xbb\x00\x00\x00w\x01\x00\x02\x00\x10\x00data\x00w\x01\x00'),len(result))
 
-		#file_audio = io.BytesIO() #'right.wav'
-		#time_start = time.time()
-		if(save):
-			waveFile = wave.open(file_audio,'wb')
-			waveFile.setnchannels(self.channels)
-			waveFile.setsampwidth(audio.get_sample_size(self.resolution))
-			waveFile.setframerate(self.rate)
-			waveFile.writeframes(b''.join(frames))
-			waveFile.close()
-
-			waveFile = wave.open('right.wav','wb')
-			waveFile.setnchannels(self.channels)
-			waveFile.setsampwidth(audio.get_sample_size(self.resolution))
-			waveFile.setframerate(self.rate)
-			waveFile.writeframes(b''.join(frames))
-			waveFile.close()
-		#print(file_audio.getvalue()[:60], type(file_audio), type(file_audio.getvalue()))
-		#time_end = time.time()
-		#print(f'From Mic: {type(file_audio)}, {file_audio.getvalue()[:50]}')
 		buffer = np.frombuffer(buffer.getvalue())
+		print(f'Buffer len {len(buffer)}')
 
 		time_end = time.time()
 		elapsed_time = time_end - time_start
+		#file_audio = io.BytesIO() #'right.wav'
+		#time_start = time.time()
+		if(save):
+			#waveFile = wave.open(file_audio,'wb')
+			#waveFile.setnchannels(self.channels)
+			#waveFile.setsampwidth(audio.get_sample_size(self.resolution))
+			#waveFile.setframerate(self.rate)
+			#waveFile.writeframes(b''.join(frames))
+			#waveFile.close()
+
+			waveFile = wave.open(f'output/mic_file_{self.counter}.wav','wb')
+			waveFile.setnchannels(self.channels)
+			waveFile.setsampwidth(self.audio.get_sample_size(self.resolution))
+			waveFile.setframerate(self.rate)
+			waveFile.writeframes(b''.join(frames))
+			waveFile.close()
+			self.counter += 1
+			print(f'File len {l}')
+		#print(file_audio.getvalue()[:60], type(file_audio), type(file_audio.getvalue()))
+		#time_end = time.time()
+		#print(f'From Mic: {type(file_audio)}, {file_audio.getvalue()[:50]}')
 		print(f'---	Recording End	--- Elapsed time {elapsed_time:.3f}','\n')
 		#return waveFile
 		#return file_audio
@@ -102,15 +107,17 @@ class Mic:
 from scipy.io import wavfile
 
 class Resampler:
-	def Resample(self,input):
+	def __init__(self):
+		self.counter = 0
+
+	def Resample(self,input,save=False):
 		print(f'---	Resampling Start	---')
 		#print(f'Before From Resamp {type(input)} {input.getvalue()[:50]}')
 		#print('Res before ',input.getbuffer().nbytes)
 #		print('Res before ',len(input))
-		#rate, audio = wavfile.read(input)
+		start_time = time.time()
 		#print('Red after, ', len(audio),rate)
 		#print(f'After From Resamp {type(audio)} {audio[:50]}')
-		start_time = time.time()
 		rate = 48000
 		audio = input
 		sampling_freq = 16000
@@ -121,28 +128,40 @@ class Resampler:
 		audio = signal.resample_poly(audio,1,ratio)
 		print('after res ',len(audio))
 #		print(type(audio))
-		#audio = audio.astype(np.int16)
-
 		end_time = time.time()
 		exec_time = end_time - start_time
+
+		if(save):
+			rate_file, audio_file = wavfile.read(f'output/mic_file_{self.counter}.wav')
+			ratio = rate_file / sampling_freq
+			print('File: before res ',len(audio_file))
+			audio_file = signal.resample_poly(audio_file,1,ratio)
+			print('File: after res ',len(audio_file))
+			audio_file = audio_file.astype(np.int16)
+			wavfile.write(f'output/resampl_file_{self.counter}.wav',sampling_freq,audio_file)
+			self.counter += 1
+
+
 		print(f'--- Resampling End	--- Elapsed time {exec_time:.3f}')
-		#wavfile.write('prova_res.wav',sampling_freq,audio)
 		return audio
 
 class STFT:
-	def CalculateSTFT(self,input_file,frame_length,stride):
+	def __init__(self):
+		self.counter = 0
+	def CalculateSTFT(self,input_file,frame_length,stride,save=False):
 		print('\n---	STFT Start	---')
-		start_time = time.time()
 
 		#Array of bytes
-#		audio = tf.io.read_file(input_file)
+		if(save):
+			audio = tf.io.read_file(f'output/resampl_file_{self.counter}.wav')
 
+		start_time = time.time()
 		#Signal and frequency of the audio input
 #		tf_audio, rate = tf.audio.decode_wav(audio)
 		tf_audio = input_file
+		print(f'Buffer len {len(tf_audio)}')
 		rate = 16000.0
 		#Add a dimension to specify the number of channels
-		#tf_audio = tf.squeeze(tf_audio, 1)
 
 		#Hyperparameters. (Maybe) Good values: 0.04, 0.02
 		frame = frame_length
@@ -160,13 +179,26 @@ class STFT:
 					fft_length=frame_len)
 		#Transform the complex number in real number
 		spectrogram = tf.abs(stft)
-
-		#byte_string = tf.io.serialize_tensor(spectrogram)
-		#Save the spectrogram and the .png image on disk
-		#output_file = f'spect'
-		#tf.io.write_file(output_file,byte_string)
-
+		print(f'Buffer spect {(tf_audio).shape}')
 		end_time = time.time()
+
+		if(save):
+			audio, rate = tf.audio.decode_wav(audio)
+			audio = tf.squeeze(audio, 1)
+			print(f'file len {(tf_audio).shape}')
+			stft = tf.signal.stft(audio,
+					frame_length=frame_len,
+					frame_step=frame_step,
+					fft_length=frame_len)
+			#Transform the complex number in real number
+			spectrogram = tf.abs(stft)
+			print(f'file spect {(tf_audio).shape}')
+			byte_string = tf.io.serialize_tensor(spectrogram)
+			#Save the spectrogram and the .png image on disk
+			output_file = f'output/file_spect_{self.counter}.spect'
+			self.counter +=1
+			tf.io.write_file(output_file,byte_string)
+
 		elapsed_time = end_time - start_time
 		print(f'---	STFT End	--- Required time: {elapsed_time:.3f}')
 
@@ -180,17 +212,22 @@ class MFCC:
 		self.sampling_rate = sampling_rate
 		self.lower_frequency = low_freq
 		self.upper_frequency = up_freq
+		self.counter = 0
 
-	def CalculateMFCC(self,input_file,output_file):
+	def CalculateMFCC(self,input_file,output_file,save=False):
 		#Read file
-		start_time = time.time()
 		print('\n---	MFCC Start	----')
 		#in_file = 'spect'
-		#spectrogram = tf.io.read_file(in_file)
-		#print(f'Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}, {len(spectrogram.numpy())}, {type(spectrogram.numpy())}, {spectrogram.numpy()[:20]}')
-		#spectrogram = tf.io.parse_tensor(spectrogram,out_type=tf.float32)
-		#print(f'Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}\n')
+		if(save):
+			spectrogram = tf.io.read_file(f'output/file_spect_{self.counter}.spect')
+			#print(f'File Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}, {len(spectrogram.numpy())}, {type(spectrogram.numpy())}, {spectrogram.numpy()[:20]}')
+			spectrogram_file = tf.io.parse_tensor(spectrogram,out_type=tf.float32)
+			print((spectrogram).shape)
+			print(type(spectrogram))
+			#print((spectrogram.numpy()).shape)
+			print(f'File Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}, {type(spectrogram.numpy())}\n')
 		#spectrogram = input_file.numpy() #.astype('float32')
+		start_time = time.time()
 		spectrogram = input_file
 		print(f'Buffer Spectrogram shape: {(spectrogram).shape} (This should be (49,321)), {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
 		spectrogram = tf.cast(spectrogram, tf.float32)
@@ -215,7 +252,7 @@ class MFCC:
 		#Not all coefficients are important, so it is useful to select only some of them.
 		#To find them you can use a search algorithm
 		mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrogram)[:,:self.coefficients]
-		#print('MFCCS shape: ', mfccs.shape)
+		print('Buffer MFCCS shape: ', mfccs.shape)
 
 
 		#print(f'Saved {output_file}.mfccs')
@@ -229,6 +266,56 @@ class MFCC:
 
 
 		end_time = time.time()
+
+		if(save):
+			image = tf.transpose(mfccs)
+			#Add the 'channel' dimension
+			image = tf.expand_dims(image,-1)
+			#Normalize to have values on a range [0,255]
+			min_val = tf.reduce_min(image)
+			max_val = tf.reduce_max(image)
+			image = (image-min_val) / (max_val-min_val)
+			image = image * 255
+			image = tf.cast(image,tf.uint8)
+
+			png_image = tf.io.encode_png(image)
+			tf.io.write_file(f'output/buffer_mfccs_{self.counter}.png',png_image)
+
+		if(save):
+			mel_spectrogram = tf.tensordot(spectrogram_file,linear_to_mel_weight_matrix,1)
+			mel_spectrogram.set_shape(spectrogram.shape[:-1].concatenate(
+						linear_to_mel_weight_matrix.shape[-1:]))
+			log_mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)
+
+			#Not all coefficients are important, so it is useful to select only some of them.
+			#To find them you can use a search algorithm
+			mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrogram)[:,:self.coefficients]
+			print('File MFCCS shape: ', mfccs.shape)
+
+			file = open(f'file_mfccs_{self.counter}.mfccs','w')
+			print(mfccs.numpy(),file=file)
+			file.close()
+
+			#print(f'Saved {output_file}.mfccs')
+			file_inp_size = os.path.getsize(f'file_mfccs_{self.counter}.mfccs')
+			print(f'File size {file_inp_size}')
+			file_out_size = os.path.getsize(output_file+'.mfccs')
+			print(f'Buffer size {file_out_size}')
+
+			image = tf.transpose(mfccs)
+			#Add the 'channel' dimension
+			image = tf.expand_dims(image,-1)
+			#Normalize to have values on a range [0,255]
+			min_val = tf.reduce_min(image)
+			max_val = tf.reduce_max(image)
+			image = (image-min_val) / (max_val-min_val)
+			image = image * 255
+			image = tf.cast(image,tf.uint8)
+
+			png_image = tf.io.encode_png(image)
+			tf.io.write_file(f'output/file_mfccs_{self.counter}.png',png_image)
+
+
 		print(f'--- MFCC End	--- Execution time: {(end_time-start_time):.3f}')
 
 		if(False):
@@ -246,7 +333,7 @@ class MFCC:
 			tf.io.write_file(f'{output_file}.png',png_image)
 
 #Input parameter
-num_samples = 5
+num_samples = 1
 output_folder = 'output/'
 
 #duration, rate, res
@@ -261,7 +348,7 @@ for i in range(num_samples):
 	start_time = time.time()
 
 	###	RECORDING	###
-	audio = mic.Record(False)
+	audio = mic.Record(True)
 
 	#buffer = io.BytesIO()
 	#for _ in range(int(48000/4800*1)):
@@ -281,13 +368,13 @@ for i in range(num_samples):
 	#print(f'Buffer recorded type: {type(f)}'
 
 	###	RESAMPLING	###
-	resampled_audio = resampler.Resample(audio)
+	resampled_audio = resampler.Resample(audio,True)
 
 	###	STFT	###
-	stft_audio = stft.CalculateSTFT(resampled_audio,0.04,0.02)
+	stft_audio = stft.CalculateSTFT(resampled_audio,0.04,0.02,True)
 
 	###	MFCC	###
-	mfcc.CalculateMFCC(stft_audio, f'{output_folder}recording_{i}')
+	mfcc.CalculateMFCC(stft_audio, f'{output_folder}recording_{i}',True)
 
 	end_time = time.time()
 	print(f'Elapsed time {(end_time-start_time):.3f}')
