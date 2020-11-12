@@ -1,20 +1,11 @@
 import tensorflow as tf
 import wave
 import pyaudio
-import argparse
-
 
 def parser_function(example):
 	return tf.io.parse_single_example(example, mapping)
 
-parser = argparse.ArgumentParser()
-# Get input directory via '--input' argument
-parser.add_argument('--input', type=str)
-args = parser.parse_args()
-
-# Get inputs from args
-input_file = args.input
-
+input_file = 'tfrecord'
 raw_data = tf.data.TFRecordDataset(input_file)
 print(raw_data)
 
