@@ -1,15 +1,15 @@
 import tensorflow as tf
 import wave
 import pyaudio
+import datetime
 
 def parser_function(example):
 	return tf.io.parse_single_example(example, mapping)
 
 input_file = 'test.tfrecord'
 raw_data = tf.data.TFRecordDataset(input_file)
-print(raw_data)
 
-mapping = {'datetime': tf.io.FixedLenFeature([], tf.string, default_value=''),
+mapping = {'datetime': tf.io.FixedLenFeature([], tf.int64, default_value=0),
             'temperature':  tf.io.FixedLenFeature([], tf.int64, default_value=0),
             'humidity':  tf.io.FixedLenFeature([], tf.int64, default_value=0),
             'audio':  tf.io.FixedLenFeature([], tf.string, default_value='')}
@@ -17,7 +17,7 @@ mapping = {'datetime': tf.io.FixedLenFeature([], tf.string, default_value=''),
 parsed_dataset = raw_data.map(parser_function)
 i = 0
 for p in parsed_dataset:
-	date = p['datetime'].numpy().decode()
+	date = datetime.datetime.fromtimestamp(p['datetime'].numpy())
 	temp = p['temperature'].numpy()
 	hum = p['humidity'].numpy()
 	audio = p['audio'].numpy()
