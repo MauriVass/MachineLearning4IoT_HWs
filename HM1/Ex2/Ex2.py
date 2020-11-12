@@ -7,9 +7,15 @@ import pyaudio
 import wave
 import tensorflow as tf
 from subprocess import Popen
+import argparse
 import os #To Remove
 import sys #To Remove
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-n', type=int, help='number samples', required=False, default=1)
+parser.add_argument('-s', required=False, default=False)
+parser.add_argument('-o', type=str, help='output file', required=False, default='output/')
+args = parser.parse_args()
 
 set_powersave = ['sudo', 'sh',  '-c', "echo powersave > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor"]
 set_performance = ['sudo', 'sh',  '-c', "echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor"]
@@ -326,8 +332,8 @@ class MFCC:
 		print(f'--- MFCC End	--- Execution time: {(end_time-start_time):.3f}')
 
 #Input parameter
-num_samples = 5
-output_folder = 'output/'
+num_samples = args.n
+output_folder = args.o
 
 Popen(reset_monitor)
 #duration, rate, res
@@ -336,7 +342,7 @@ resampler = Resampler()
 stft = STFT()
 mfcc = MFCC(40,10,16000,20,4000)
 
-save = False
+save = args.s
 times = []
 for i in range(num_samples):
 	start_time = time.time()
