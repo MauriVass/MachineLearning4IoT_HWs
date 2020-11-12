@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import time
 import argparse
-
+import datetime
 
 parser = argparse.ArgumentParser()
 # Get input directory via '--input' argument
@@ -30,7 +30,7 @@ with tf.io.TFRecordWriter(output_file) as writer:
     for f in file:
         content = f.rstrip().split(',')
         # Read a line. Format: date,time,temp,humi,wav_file
-        datetime = time.time()
+        datetime = datetime.datetime.fromtimestamp(time.time())
         temperature = int(content[2])
         humidity = int(content[3])
         audio_file = content[4]
