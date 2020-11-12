@@ -32,7 +32,7 @@ class Mic:
         self.counter = 0
 
     def Record(self, save=False):
-        # time_start = time.time()
+        time_start = time.time()
         if (save):
             frames = []
         # audio = pyaudio.PyAudio()
@@ -71,8 +71,8 @@ class Mic:
         # buffer_bytes = np.ndarray(len(buffer.getvalue())-1, buffer=buffer.getvalue()) #, dtype=np.uint16)
         print(f'Buffer len {len(buffer_bytes)}')
 
-        # time_end = time.time()
-        # elapsed_time = time.time() - time_start
+        time_end = time.time()
+        elapsed_time = time_end - time_start
         # file_audio = io.BytesIO() #'right.wav'
         # time_start = time.time()
         if (save):
@@ -94,7 +94,7 @@ class Mic:
         # print(file_audio.getvalue()[:60], type(file_audio), type(file_audio.getvalue()))
         # time_end = time.time()
         # print(f'From Mic: {type(file_audio)}, {file_audio.getvalue()[:50]}')
-        # print(f'---	Recording End	--- Elapsed time {elapsed_time:.3f}', '\n')
+        print(f'---	Recording End	--- Elapsed time {elapsed_time:.3f}', '\n')
         # return waveFile
         # return file_audio
         #		return result
@@ -119,7 +119,7 @@ class Resampler:
         # print(f'Before From Resamp {type(input)} {input.getvalue()[:50]}')
         # print('Res before ',input.getbuffer().nbytes)
         #		print('Res before ',len(input))
-        # start_time = time.time()
+        start_time = time.time()
         # print('Red after, ', len(audio),rate)
         # print(f'After From Resamp {type(audio)} {audio[:50]}')
         rate = 48000
@@ -134,8 +134,8 @@ class Resampler:
         audio = signal.resample_poly(audio, 1, ratio)
         print('after res ', len(audio), type(audio))
         #		print(type(audio))
-        # end_time = time.time()
-        # exec_time = end_time - start_time
+        end_time = time.time()
+        exec_time = end_time - start_time
 
         if (save):
             rate_file, audio_file = wavfile.read(f'output/mic_file_{self.counter}.wav')
@@ -147,7 +147,7 @@ class Resampler:
             wavfile.write(f'output/resampl_file_{self.counter}.wav', sampling_freq, audio_file)
             self.counter += 1
 
-        # print(f'--- Resampling End	--- Elapsed time {exec_time:.3f}')
+        print(f'--- Resampling End	--- Elapsed time {exec_time:.3f}')
         return audio
 
 
@@ -162,7 +162,7 @@ class STFT:
         if (save):
             audio_file = tf.io.read_file(f'output/resampl_file_{self.counter}.wav')
 
-        # start_time = time.time()
+        start_time = time.time()
         # Signal and frequency of the audio input
         #		tf_audio, rate = tf.audio.decode_wav(audio)
         tf_audio = input_file
@@ -180,21 +180,21 @@ class STFT:
         # print(type(tf_audio))
 
         # Calculate the STFT of the signal given frame_length and frame_step
-        # ts = time.time()
+        ts = time.time()
         stft = tf.signal.stft(tf_audio,
                               frame_length=frame_len,
                               frame_step=frame_step,
                               fft_length=frame_len)
-        # te = time.time()
-        # print(f'tf.signal.stft time: {(te - ts):.3f}')
+        te = time.time()
+        print(f'tf.signal.stft time: {(te - ts):.3f}')
 
         # Transform the complex number in real number
-        # ts = time.time()
-        # spectrogram_buffer = tf.abs(stft)
-        # te = time.time()
-        # print(f'tf.abs time: {(te - ts):.3f}')
-        # print(f'Buffer spect {(tf_audio).shape}')
-        # end_time = time.time()
+        ts = time.time()
+        spectrogram_buffer = tf.abs(stft)
+        te = time.time()
+        print(f'tf.abs time: {(te - ts):.3f}')
+        print(f'Buffer spect {(tf_audio).shape}')
+        end_time = time.time()
 
         if (save):
             audio, rate = tf.audio.decode_wav(audio_file)
@@ -234,13 +234,13 @@ class MFCC:
         # in_file = 'spect'
 
         # spectrogram = input_file.numpy() #.astype('float32')
-        # start_time = time.time()
+        start_time = time.time()
         spectrogram = input_file
         print(
             f'Buffer Spectrogram shape: {(spectrogram).shape} (This should be (49,321)), {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
         spectrogram = tf.cast(spectrogram, tf.float32)
-        # te = time.time()
-        # print(f'Casting(+ import time~0) time: {(te - start_time):.3f}')
+        te = time.time()
+        print(f'Casting(+ import time~0) time: {(te - start_time):.3f}')
         print(
             f'Buffer Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
         # spectrogram = tf.constant(input_file.numpy(), dtype=tf.float64)
@@ -249,7 +249,7 @@ class MFCC:
 
         num_spectrogram_bins = spectrogram.shape[-1]
         # print(num_spectrogram_bins)
-        # ts = time.time()
+        ts = time.time()
         linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
             self.num_mel_bins,
             num_spectrogram_bins,
@@ -260,8 +260,8 @@ class MFCC:
         mel_spectrogram.set_shape(spectrogram.shape[:-1].concatenate(
             linear_to_mel_weight_matrix.shape[-1:]))
         log_mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)
-        # te = time.time()
-        # print(f'Calculation time: {(te - ts):.3f}')
+        te = time.time()
+        print(f'Calculation time: {(te - ts):.3f}')
 
         # Not all coefficients are important, so it is useful to select only some of them.
         # To find them you can use a search algorithm
@@ -277,7 +277,7 @@ class MFCC:
         # file_out_size = os.path.getsize(output_file+'.mfccs')
         # print(f'File size {file_out_size}')
 
-        # end_time = time.time()
+        end_time = time.time()
 
         if (save):
             spectrogram_file = tf.io.read_file(f'output/file_spect_{self.counter}.spect')
