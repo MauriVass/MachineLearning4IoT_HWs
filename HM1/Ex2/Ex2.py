@@ -54,50 +54,45 @@ class Mic:
 		#		channels=self.channels,
 		#		rate= self.rate, input=True,
 		#		frames_per_buffer=self.chunk)
-
+		#Popen(set_powersave)
 		print('\n---	Recording Start	---')
 		max_val = int(self.rate / self.chunk * self.record_seconds)
 		l = 0
+		#Popen(set_powersave)
 		buffer = io.BytesIO()
-		#buffer.write(b'RIFF$w\x01\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80\xbb\x00\x00\x00w\x01\x00\x02\x00\x10\x00data\x00w\x01\x00')
 		#Popen(set_powersave)
 		self.stream.start_stream()
-		Popen(set_powersave)
+		#Popen(set_powersave)
 		#Popen(check_performance)
 		for i in range(max_val):
-			#if(i == 0):
-			#	Popen(set_powersave)
-			data = self.stream.read(self.chunk, exception_on_overflow=True)
+			if(i == 0):
+				Popen(set_powersave)
+			data = self.stream.read(self.chunk)
 			buffer.write(data)
-			if(i==max_val-1):
+			if(i==max_val-1-1):
 				Popen(set_performance)
 				#Popen(check_performance)
 			if(save):
 				frames.append(data)
-				l += len(data)
+			l += len(data)
+		#Popen(set_performance)
 		self.stream.stop_stream()
 		#stream.close()
 		#audio.terminate()
 		#print('End loop Rec: ',len(buffer.getvalue()))
 
 
-		#Buffer requires to be cast as uint16 but I'M NOT SURE WHY
+		#Buffer requires to be cast as uint16 but I'M NOT SURE WHY. --> The answer is that bigger types (float,...) takes more bytes so the overall length is reduced
 		#with dtype=float(default) the len(buffer_bytes) is 12k while it should be 48k (smaller size, faster compu)
 		#with dtype=uint16 the len(buffer_bytes) is ok (48k)
 		#Next calculation requires lot more time to compiute wrt float or uint8 (actually not sure if it only depends on the output size of the 2 methods)
+		#This value should match the resolution (int16 in this case)
 		#ROOM FOR IMPROVEMENT
-		buffer_bytes = np.frombuffer(buffer.getvalue(), dtype=np.uint16)
+		buffer_bytes = np.frombuffer(buffer.getvalue(), dtype=np.int16)
 
 		time_end = time.time()
 		elapsed_time = time_end - time_start
 		if(save):
-			#waveFile = wave.open(file_audio,'wb')
-			#waveFile.setnchannels(self.channels)
-			#waveFile.setsampwidth(audio.get_sample_size(self.resolution))
-			#waveFile.setframerate(self.rate)
-			#waveFile.writeframes(b''.join(frames))
-			#waveFile.close()
-
 			waveFile = wave.open(f'output/mic_file_{self.counter}.wav','wb')
 			waveFile.setnchannels(self.channels)
 			waveFile.setsampwidth(self.audio.get_sample_size(self.resolution))
@@ -123,7 +118,10 @@ class Resampler:
 		print(f'---	Resampling Start	---')
 		start_time = time.time()
 		rate = 48000
-		audio = input #.astype('float64')
+		audio = input
+		#audio = tf.dtypes.cast(input, tf.float32)
+		te = time.time()
+		print(f'Casting time: {(te-start_time):.3f}')
 		sampling_freq = 16000
 		ratio = rate / sampling_freq
 
@@ -158,6 +156,7 @@ class STFT:
 		#tf_audio, rate = tf.audio.decode_wav(tf_audio)
 		#tf_audio = tf.squeeze(tf_audio, 1)
 		tf_audio = input_file
+		#Casting this from float64 to float 32 allow to reduce the number of casts.
 		tf_audio = tf.dtypes.cast(input_file, tf.float32)
 		te = time.time()
 		print(f'Casting time: {(te-start_time):.3f}')
@@ -179,10 +178,12 @@ class STFT:
 		#print(f'Frame len: {frame_len}, frame step: {frame_step}')
 
 		ts = time.time()
+		#print('Before ', tf_audio.dtype)
 		stft = tf.signal.stft(tf_audio,
 					frame_length=frame_len,
 					frame_step=frame_step,
 					fft_length=frame_len)
+		#print('After ', stft.dtype)
 		te = time.time()
 		print(f'tf.signal.stft time: {(te-ts):.3f}')
 
@@ -191,7 +192,7 @@ class STFT:
 		spectrogram_buffer = tf.abs(stft)
 		te = time.time()
 		print(f'tf.abs time: {(te-ts):.3f}')
-		#print(f'Buffer spect {(spectrogram_buffer).shape}')
+		#print(f'Buffer spect {(spectrogram_buffer).shape}, {(spectrogram_buffer).dtype}')
 		end_time = time.time()
 
 		if(save):
@@ -207,7 +208,7 @@ class STFT:
 			spectrogram = tf.abs(stft)
 			te = time.time()
 			print(f'file stft time: {(te-ts):.3f}')
-			print(f'file spect {(tf_audio).shape}')
+			print(f'file spect {(tf_audio).shape}, {type(tf_audio)}')
 			byte_string = tf.io.serialize_tensor(spectrogram)
 			output_file = f'output/file_spect_{self.counter}.spect'
 			self.counter +=1
@@ -231,16 +232,13 @@ class MFCC:
 	def CalculateMFCC(self,input_file,output_file,save=False):
 		print('\n---	MFCC Start	----')
 
-		#spectrogram = input_file.numpy() #.astype('float32')
 		start_time = time.time()
 		spectrogram = input_file
 		#print(f'Buffer Spectrogram shape: {(spectrogram).shape} (This should be (49,321)), {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
-		spectrogram = tf.cast(spectrogram, tf.float32)
+		#spectrogram = tf.cast(spectrogram, tf.float32)
 		te = time.time()
 		print(f'Casting(+ import time~0) time: {(te-start_time):.3f}')
-		#print(f'Buffer Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
-		#spectrogram = tf.constant(input_file.numpy(), dtype=tf.float64)
-		#spectrogram = tf.io.parse_tensor(input_file.numpy(), out_type=tf.float32)
+		#print(f'Buffer Spectrogram shape: {(spectrogram).shape}, {(spectrogram).dtype}') #, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
 		#print(f'Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}')
 
 		num_spectrogram_bins = spectrogram.shape[-1]
@@ -252,12 +250,18 @@ class MFCC:
 					self.sampling_rate,
 					self.lower_frequency,
 					self.upper_frequency)
+		te = time.time()
+		print(f'tf.signal.linear_to_mel_weight_matrix time: {(te-ts):.3f}')
+		ts = time.time()
 		mel_spectrogram = tf.tensordot(spectrogram,linear_to_mel_weight_matrix,1)
+		te = time.time()
+		print(f'tf.tensordot time: {(te-ts):.3f}')
+		ts = time.time()
 		mel_spectrogram.set_shape(spectrogram.shape[:-1].concatenate(
 					linear_to_mel_weight_matrix.shape[-1:]))
 		log_mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)
 		te = time.time()
-		print(f'Calculation time: {(te-ts):.3f}')
+		print(f'.set_shape + .log time: {(te-ts):.3f}')
 
 		ts = time.time()
 		mfccs = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrogram)[:,:self.coefficients]
@@ -267,10 +271,7 @@ class MFCC:
 
 
 		ts = time.time()
-		outt = output_file+'.mfccs'
-		file = open(outt,'w')
-		print(mfccs.numpy(),file=file)
-		file.close()
+		np.save(output_file+'.mfccs',mfccs.numpy())
 		te = time.time()
 		print(f'Storing time: {(te-ts):.3f}')
 
@@ -365,6 +366,6 @@ for i in range(num_samples):
 	print('\n\n')
 
 for i in times:
-	print(i,'Shame of you!' if float(i)>1.08 else 'Great u awesome!!')
+	print(i,'Shame on you!' if float(i)>1.08 else 'Great u awesome!!')
 
 Popen(print_monitor)
