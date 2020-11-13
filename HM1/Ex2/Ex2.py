@@ -61,7 +61,10 @@ class Mic:
 		#Popen(set_powersave)
 		buffer = io.BytesIO()
 		#Popen(set_powersave)
+		ts=time.time()
 		self.stream.start_stream()
+		te = time.time()
+		print(f'Start stream {(te-ts):.3f}')
 		#Popen(set_powersave)
 		#Popen(check_performance)
 		for i in range(max_val):
@@ -116,6 +119,7 @@ class Resampler:
 
 	def Resample(self,input,save=False):
 		print(f'---	Resampling Start	---')
+		#Popen(check_performance)
 		start_time = time.time()
 		rate = 48000
 		audio = input
@@ -170,6 +174,7 @@ class STFT:
 		te = time.time()
 		print(f'Normalization time: {(te-ts):.3f}')
 		'''
+		#tf_audio = tf.dtypes.cast(input_file, tf.float32)
 		#print(f'Buffer len {len(tf_audio)}')
 		rate = 16000.0
 
@@ -229,36 +234,47 @@ class MFCC:
 		self.upper_frequency = up_freq
 		self.counter = 0
 
-	def CalculateMFCC(self,input_file,output_file,save=False):
-		print('\n---	MFCC Start	----')
-
-		start_time = time.time()
-		spectrogram = input_file
-		#print(f'Buffer Spectrogram shape: {(spectrogram).shape} (This should be (49,321)), {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
-		#spectrogram = tf.cast(spectrogram, tf.float32)
-		te = time.time()
-		print(f'Casting(+ import time~0) time: {(te-start_time):.3f}')
-		#print(f'Buffer Spectrogram shape: {(spectrogram).shape}, {(spectrogram).dtype}') #, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
-		#print(f'Spectrogram shape: {(spectrogram).shape}, {type(spectrogram)}')
-
-		num_spectrogram_bins = spectrogram.shape[-1]
-		#print(num_spectrogram_bins)
 		ts = time.time()
-		linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+		self.linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
 					self.num_mel_bins,
-					num_spectrogram_bins,
+					321,
 					self.sampling_rate,
 					self.lower_frequency,
 					self.upper_frequency)
 		te = time.time()
 		print(f'tf.signal.linear_to_mel_weight_matrix time: {(te-ts):.3f}')
 		ts = time.time()
-		mel_spectrogram = tf.tensordot(spectrogram,linear_to_mel_weight_matrix,1)
+
+	def CalculateMFCC(self,input_file,output_file,save=False):
+		print('\n---	MFCC Start	----')
+
+		start_time = time.time()
+		spectrogram = input_file
+		#print(f'Buffer Spectrogram shape: {(spectrogram).shape} (This should be (49,321)), {type(spectrogram)}, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
+		spectrogram = tf.cast(spectrogram, tf.float32)
+		te = time.time()
+		print(f'Casting(+ import time~0) time: {(te-start_time):.3f}')
+		#print(f'Buffer Spectrogram shape: {(spectrogram).shape}, {(spectrogram).dtype}') #, {(spectrogram.numpy()).shape}, {type(spectrogram.numpy())}')
+		print(f'Spectrogram shape: {(spectrogram).shape}, {(spectrogram).dtype}')
+
+		num_spectrogram_bins = spectrogram.shape[-1]
+		#print(num_spectrogram_bins)
+		#ts = time.time()
+		#linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+		#			self.num_mel_bins,
+		#			num_spectrogram_bins,
+		#			self.sampling_rate,
+		#			self.lower_frequency,
+		#			self.upper_frequency)
+		#te = time.time()
+		#print(f'tf.signal.linear_to_mel_weight_matrix time: {(te-ts):.3f}')
+		ts = time.time()
+		mel_spectrogram = tf.tensordot(spectrogram,self.linear_to_mel_weight_matrix,1)
 		te = time.time()
 		print(f'tf.tensordot time: {(te-ts):.3f}')
 		ts = time.time()
 		mel_spectrogram.set_shape(spectrogram.shape[:-1].concatenate(
-					linear_to_mel_weight_matrix.shape[-1:]))
+					self.linear_to_mel_weight_matrix.shape[-1:]))
 		log_mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)
 		te = time.time()
 		print(f'.set_shape + .log time: {(te-ts):.3f}')
@@ -271,7 +287,8 @@ class MFCC:
 
 
 		ts = time.time()
-		np.save(output_file+'.mfccs',mfccs.numpy())
+		#np.save(output_file+'.mfccs',mfccs.numpy())
+		np.savetxt(output_file+'.mfccs',mfccs.numpy())
 		te = time.time()
 		print(f'Storing time: {(te-ts):.3f}')
 
@@ -285,12 +302,12 @@ class MFCC:
 			#print((spectrogram).shape)
 			#print(type(spectrogram))
 			#print((spectrogram.numpy()).shape)
-			print(f'File Spectrogram shape: {(spectrogram_file).shape}, {type(spectrogram_file)}, {type(spectrogram_file.numpy())}')
+			print(f'File Spectrogram shape: {(spectrogram_file).shape}, {(spectrogram_file).dtype}, {type(spectrogram_file.numpy())}')
 
 			ts = time.time()
 			mel_spectrogram = tf.tensordot(spectrogram_file,linear_to_mel_weight_matrix,1)
 			mel_spectrogram.set_shape(spectrogram_file.shape[:-1].concatenate(
-						linear_to_mel_weight_matrix.shape[-1:]))
+						self.linear_to_mel_weight_matrix.shape[-1:]))
 			log_mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)
 
 			mfccs_file = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrogram)[:,:self.coefficients]
