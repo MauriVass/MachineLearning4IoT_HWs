@@ -57,14 +57,13 @@ class Mic:
 		#Popen(set_powersave)
 		print('\n---	Recording Start	---')
 		max_val = int(self.rate / self.chunk * self.record_seconds)
+		print(max_val, self.rate, self.chunk, self.record_seconds)
 		l = 0
 		#Popen(set_powersave)
 		buffer = io.BytesIO()
 		#Popen(set_powersave)
 		ts=time.time()
 		self.stream.start_stream()
-		te = time.time()
-		print(f'Start stream {(te-ts):.3f}')
 		#Popen(set_powersave)
 		#Popen(check_performance)
 		for i in range(max_val):
@@ -78,6 +77,8 @@ class Mic:
 			if(save):
 				frames.append(data)
 			l += len(data)
+		te = time.time()
+		print(f'Recording {(te-ts):.3f}')
 		#Popen(set_performance)
 		self.stream.stop_stream()
 		#stream.close()
@@ -92,10 +93,17 @@ class Mic:
 		#This value should match the resolution (int16 in this case)
 		#ROOM FOR IMPROVEMENT
 		buffer_bytes = np.frombuffer(buffer.getvalue(), dtype=np.int16)
-
+		print(len(buffer_bytes), l)
 		time_end = time.time()
 		elapsed_time = time_end - time_start
 		if(save):
+			waveFile = wave.open(f'output/mic_buffer_{self.counter}.wav','wb')
+			waveFile.setnchannels(self.channels)
+			waveFile.setsampwidth(self.audio.get_sample_size(self.resolution))
+			waveFile.setframerate(self.rate)
+			waveFile.writeframes(buffer.getvalue())
+			waveFile.close()
+
 			waveFile = wave.open(f'output/mic_file_{self.counter}.wav','wb')
 			waveFile.setnchannels(self.channels)
 			waveFile.setsampwidth(self.audio.get_sample_size(self.resolution))
@@ -287,8 +295,10 @@ class MFCC:
 
 
 		ts = time.time()
-		#np.save(output_file+'.mfccs',mfccs.numpy())
-		np.savetxt(output_file+'.mfccs',mfccs.numpy())
+		file = open(output_file+'.mfccs','w')
+		#np.save(output_file+'_save.mfccs',mfccs.numpy())
+		#np.savetxt(output_file+'_savetxt.mfccs',mfccs.numpy())
+		print(mfccs.numpy(),file=file)
 		te = time.time()
 		print(f'Storing time: {(te-ts):.3f}')
 
@@ -305,7 +315,7 @@ class MFCC:
 			print(f'File Spectrogram shape: {(spectrogram_file).shape}, {(spectrogram_file).dtype}, {type(spectrogram_file.numpy())}')
 
 			ts = time.time()
-			mel_spectrogram = tf.tensordot(spectrogram_file,linear_to_mel_weight_matrix,1)
+			mel_spectrogram = tf.tensordot(spectrogram_file,self.linear_to_mel_weight_matrix,1)
 			mel_spectrogram.set_shape(spectrogram_file.shape[:-1].concatenate(
 						self.linear_to_mel_weight_matrix.shape[-1:]))
 			log_mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)
@@ -315,11 +325,11 @@ class MFCC:
 			te = time.time()
 			print(f'fil mfccs time: {(te-ts):.3f}')
 
-			file = open(f'file_mfccs_{self.counter}.mfccs','w')
+			file = open(f'output/file_mfccs_{self.counter}.mfccs','w')
 			print(mfccs_file.numpy(),file=file)
 			file.close()
 
-			file_inp_size = os.path.getsize(f'file_mfccs_{self.counter}.mfccs')
+			file_inp_size = os.path.getsize(f'output/file_mfccs_{self.counter}.mfccs')
 			print(f'File size {file_inp_size}')
 			file_out_size = os.path.getsize(output_file+'.mfccs')
 			print(f'Buffer size {file_out_size}')
@@ -346,7 +356,7 @@ class MFCC:
 
 			png_image = tf.io.encode_png(image)
 			tf.io.write_file(f'output/buffer_mfccs_{self.counter}.png',png_image)
-
+			self.counter += 1
 		print(f'--- MFCC End	--- Execution time: {(end_time-start_time):.3f}')
 
 #Input parameter
@@ -380,7 +390,7 @@ for i in range(num_samples):
 	end_time = time.time()
 	print(f'Elapsed time {(end_time-start_time):.3f}')
 	times.append(f'{(end_time-start_time):.3f}')
-	print('\n\n')
+	print('\n')
 
 for i in times:
 	print(i,'Shame on you!' if float(i)>1.08 else 'Great u awesome!!')
