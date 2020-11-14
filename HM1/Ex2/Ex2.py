@@ -50,7 +50,7 @@ class Mic:
 		if(save):
 			frames = []
 		#audio = pyaudio.PyAudio()
-		#stream = audio.open(format=self.resolution,
+		#stream = self.audio.open(format=self.resolution,
 		#		channels=self.channels,
 		#		rate= self.rate, input=True,
 		#		frames_per_buffer=self.chunk)
@@ -84,7 +84,13 @@ class Mic:
 		#stream.close()
 		#audio.terminate()
 		#print('End loop Rec: ',len(buffer.getvalue()))
-
+		#waveFile = wave.open(bufferwave,'wb')
+		#waveFile.setnchannels(self.channels)
+		#waveFile.setsampwidth(self.audio.get_sample_size(self.resolution))
+		#waveFile.setframerate(self.rate)
+		#waveFile.writeframes(b''.join(frames))
+		#waveFile.close()
+		#print(len(buffer.getvalue()), len(bufferwave.getvalue()), type(bufferwave.getvalue()))
 
 		#Buffer requires to be cast as uint16 but I'M NOT SURE WHY. --> The answer is that bigger types (float,...) takes more bytes so the overall length is reduced
 		#with dtype=float(default) the len(buffer_bytes) is 12k while it should be 48k (smaller size, faster compu)
@@ -115,6 +121,7 @@ class Mic:
 		print(f'---	Recording End	--- Elapsed time {elapsed_time:.3f}','\n')
 		return buffer_bytes
 
+
 	def CloseBuffer(self):
 		self.stream.close()
 		self.audio.terminate()
@@ -132,6 +139,7 @@ class Resampler:
 		rate = 48000
 		audio = input
 		#audio = tf.dtypes.cast(input, tf.float32)
+		#rate, audio = wavfile.read(input)
 		te = time.time()
 		print(f'Casting time: {(te-start_time):.3f}')
 		sampling_freq = 16000
@@ -243,12 +251,13 @@ class MFCC:
 		self.counter = 0
 
 		ts = time.time()
-		self.linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-					self.num_mel_bins,
-					321,
-					self.sampling_rate,
-					self.lower_frequency,
-					self.upper_frequency)
+		if(True):
+			self.linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+						self.num_mel_bins,
+						321,
+						self.sampling_rate,
+						self.lower_frequency,
+						self.upper_frequency)
 		te = time.time()
 		print(f'tf.signal.linear_to_mel_weight_matrix time: {(te-ts):.3f}')
 		ts = time.time()
@@ -268,21 +277,23 @@ class MFCC:
 		num_spectrogram_bins = spectrogram.shape[-1]
 		#print(num_spectrogram_bins)
 		#ts = time.time()
-		#linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-		#			self.num_mel_bins,
-		#			num_spectrogram_bins,
-		#			self.sampling_rate,
-		#			self.lower_frequency,
-		#			self.upper_frequency)
+		if(False):
+			linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+						self.num_mel_bins,
+						num_spectrogram_bins,
+						self.sampling_rate,
+						self.lower_frequency,
+						self.upper_frequency)
+		ltmwm = self.linear_to_mel_weight_matrix
 		#te = time.time()
 		#print(f'tf.signal.linear_to_mel_weight_matrix time: {(te-ts):.3f}')
 		ts = time.time()
-		mel_spectrogram = tf.tensordot(spectrogram,self.linear_to_mel_weight_matrix,1)
+		mel_spectrogram = tf.tensordot(spectrogram,ltmwm,1)
 		te = time.time()
 		print(f'tf.tensordot time: {(te-ts):.3f}')
 		ts = time.time()
 		mel_spectrogram.set_shape(spectrogram.shape[:-1].concatenate(
-					self.linear_to_mel_weight_matrix.shape[-1:]))
+					ltmwm.shape[-1:]))
 		log_mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)
 		te = time.time()
 		print(f'.set_shape + .log time: {(te-ts):.3f}')
@@ -295,10 +306,10 @@ class MFCC:
 
 
 		ts = time.time()
-		file = open(output_file+'.mfccs','w')
+		#file = open(output_file+'.mfccs','w')
+		#print(mfccs.numpy(),file=file)
 		#np.save(output_file+'_save.mfccs',mfccs.numpy())
-		#np.savetxt(output_file+'_savetxt.mfccs',mfccs.numpy())
-		print(mfccs.numpy(),file=file)
+		np.savetxt(output_file+'_savetxt.mfccs',mfccs.numpy())
 		te = time.time()
 		print(f'Storing time: {(te-ts):.3f}')
 
@@ -364,11 +375,10 @@ num_samples = args.n
 output_folder = args.o
 
 Popen(reset_monitor)
-#duration, rate, res
-mic = Mic(1,48000,16)
 resampler = Resampler()
 stft = STFT()
 mfcc = MFCC(40,10,16000,20,4000)
+mic = Mic(1,48000,16)
 
 save = args.s
 times = []
@@ -392,6 +402,7 @@ for i in range(num_samples):
 	times.append(f'{(end_time-start_time):.3f}')
 	print('\n')
 
+mic.CloseBuffer()
 for i in times:
 	print(i,'Shame on you!' if float(i)>1.08 else 'Great u awesome!!')
 
