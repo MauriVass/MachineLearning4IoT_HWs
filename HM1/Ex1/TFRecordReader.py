@@ -2,7 +2,7 @@ import tensorflow as tf
 import wave
 import pyaudio
 import datetime
-
+from scipy.io import wavfile
 def parser_function(example):
 	return tf.io.parse_single_example(example, mapping)
 
@@ -21,16 +21,22 @@ for p in parsed_dataset:
 	temp = p['temperature'].numpy()
 	hum = p['humidity'].numpy()
 	audio = p['audio'].numpy()
-	#print(audio)
 
-	waveFile = wave.open(f'audio{i}.wav','wb')
+	#waveFile = wave.open(f'audio{i}.wav','wb')
+	file = f'audio{i}.wav'
 	i+=1
+	#audio = audio.astype(np.int16)
+	#wavfile.write(file,48000,audio)
+
+	tf.io.write_file(file,audio)
+	'''
 	waveFile.setnchannels(1)
 	a = pyaudio.PyAudio()
 	waveFile.setsampwidth(a.get_sample_size(pyaudio.paInt16))
 	waveFile.setframerate(48000)
 	waveFile.writeframes(audio)
 	waveFile.close()
+	'''
 
 	entry = f'{date},{temp},{hum},{type(audio)}'
 	print(entry)
