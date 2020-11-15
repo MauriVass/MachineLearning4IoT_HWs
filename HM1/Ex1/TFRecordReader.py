@@ -10,8 +10,8 @@ input_file = 'test.tfrecord'
 raw_data = tf.data.TFRecordDataset(input_file)
 
 mapping = {'datetime': tf.io.FixedLenFeature([], tf.int64, default_value=0),
-            'temperature':  tf.io.FixedLenFeature([], tf.int64, default_value=0),
-            'humidity':  tf.io.FixedLenFeature([], tf.int64, default_value=0),
+            'temperature':  tf.io.FixedLenFeature([], tf.float32, default_value=0),
+            'humidity':  tf.io.FixedLenFeature([], tf.float32, default_value=0),
             'audio':  tf.io.FixedLenFeature([], tf.string, default_value='')}
 
 parsed_dataset = raw_data.map(parser_function)

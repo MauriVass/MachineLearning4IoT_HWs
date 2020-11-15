@@ -34,8 +34,8 @@ with tf.io.TFRecordWriter(output_file) as writer:
 		entry_time = [int(x) for x in content[1].split(':')]
 		timestamp = datetime.datetime(entry_date[2],entry_date[1],entry_date[0],entry_time[0],entry_time[1],entry_time[2])
 		timestamp_posix = int(time.mktime(timestamp.timetuple()))
-		temperature = int(content[2])
-		humidity = int(content[3])
+		temperature = float(content[2])
+		humidity = float(content[3])
 		audio_file = content[4]
 
 		# Read .wav file
@@ -47,8 +47,8 @@ with tf.io.TFRecordWriter(output_file) as writer:
 		#print(type(timestamp_posix),type(temperature),type(humidity),type(audio))
 
 		date_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[timestamp_posix]))
-		temp_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[temperature]))
-		humi_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[humidity]))
+		temp_feature = tf.train.Feature(float_list=tf.train.FloatList(value=[temperature]))
+		humi_feature = tf.train.Feature(float_list=tf.train.FloatList(value=[humidity]))
 		audio_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[audio]))
 
 		mapping = {'datetime': date_feature,
