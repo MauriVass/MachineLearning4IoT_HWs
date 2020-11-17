@@ -1,12 +1,10 @@
 import os
-from scipy import signal
 import io
 import time
-from scipy.io.wavfile import read, write
 import numpy as np
-import pyaudio
-import wave
 import tensorflow as tf
+import pyaudio
+from scipy import signal
 from subprocess import Popen
 import argparse
 
@@ -123,13 +121,13 @@ class MFCC:
 print(args)
 #Input parameter
 num_samples = args.num_samples
-
+#Create output folder if it does not exist
 output_folder = args.output + '/'
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 #Reset monitor to have the actual number of clock cycles
 Popen(reset_monitor)
-#Instance object needed for the pipeline
+#Instance objects needed for the pipeline
 resampler = Resampler()
 stft = STFT()
 mfcc = MFCC(40,10,16000,20,4000)
@@ -144,10 +142,10 @@ for i in range(num_samples):
 	###	STFT	###
 	stft_audio = stft.CalculateSTFT(resampled_audio,0.04,0.02)
 	###	MFCC	###
-	mfcc.CalculateMFCC(stft_audio, f'{output_folder}recording_{i}.mffcs')
+	mfcc.CalculateMFCC(stft_audio, f'{output_folder}mfccs{i}.bin')
 
 	end_time = time.time()
-	print(f'Elapsed time {(end_time-start_time):.3f}')
+	print(f'{(end_time-start_time):.3f}')
 #Close the mic buffer after all recordings are ended
 mic.CloseBuffer()
 #Print monitor status
