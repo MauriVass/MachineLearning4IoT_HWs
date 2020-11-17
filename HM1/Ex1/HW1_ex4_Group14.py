@@ -1,8 +1,8 @@
-import tensorflow as tf
 import os
 import time
 import argparse
 import datetime
+import tensorflow as tf
 
 parser = argparse.ArgumentParser()
 # Get input directory via '--input' argument
