@@ -303,13 +303,13 @@ LABELS = LABELS[LABELS != 'README.md']
 
 ### MAIN PARAMETERS ###
 version = args.version
-if(version=='a'):
-	### Model A ###
+if(version=='a' or version=='c'):
+	### Models A & C ###
 	model = 'DSCNN'
 	mfcc = True
-	alpha = 0.4
-	sparsity = 0.82
-	frame_length = 640
+	alpha = 0.282
+	sparsity = None
+	frame_length = 480
 	frame_step = 320
 
 elif(version=='b'):
@@ -320,15 +320,6 @@ elif(version=='b'):
 	sparsity = None
 	frame_length = 320
 	frame_step = 240
-
-elif(version=='c'):
-	### Model C ###
-	model = 'DSCNN'
-	mfcc = True
-	alpha = 0.282
-	sparsity = None
-	frame_length = 480
-	frame_step = 320
 
 num_mel_bins = 40 #Default 40 (only mfcc=True)
 num_coefficients = 10 #Default 10 (only mfcc=True)
