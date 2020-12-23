@@ -343,3 +343,40 @@ quantization = 'w'
 zipping = True
 saved_model_dir = output_model
 output_tflite_model = Optimize(saved_model_dir,quantization,zipping)
+
+# #Test Models
+
+# saved_model_dir = output_tflite_model
+# if(saved_model_dir.find('zip')>0):
+#   raise KeyError('YOU CAN\'T TEST A .zip MODEL. (Use zipping=False in Optimize() method)')
+
+# test_ds = test_ds.unbatch().batch(1)
+
+# interpreter = tf.lite.Interpreter(model_path=saved_model_dir)
+# interpreter.allocate_tensors()
+
+# input_details = interpreter.get_input_details()
+# output_details = interpreter.get_output_details()
+# mae = [0,0]
+# n = 0
+# time_infe = 0
+# #print(test_ds)
+
+# for x,y in test_ds:
+#   #print(x,y)
+#   input_data = x
+#   y_true = y.numpy()[0]
+  
+#   ti = time.time()
+#   interpreter.set_tensor(input_details[0]['index'], input_data)
+#   interpreter.invoke()
+#   my_output = interpreter.get_tensor(output_details[0]['index'])[0]
+#   time_infe += time.time()-ti
+
+#   n+=1
+#   #mae[0] += np.abs(y[0] - my_output[0])
+#   #mae[1] += np.abs(y[1] - my_output[1])
+#   error = tf.abs(my_output-y_true)
+#   mae += tf.reduce_mean(error, axis=(0,))
+
+# print(f'MAE: temp: {mae[0]/n}, humi: {mae[1]/n}, time: {(time_infe/n)*1000} ms')
