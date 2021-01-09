@@ -10,10 +10,12 @@ import numpy as np
 import tensorflow as tf
 import zlib
 import os
+import requests #REST
 
-import sys
+import sys #MQTT
 sys.path.insert(0, './../')
 from DoSomething import DoSomething
+
 #Set a seed to get repricable results
 seed = 42
 tf.random.set_seed(seed)
@@ -25,7 +27,7 @@ def Decompress(model_path):
 		raise KeyError('YOU CAN\'T DECOMPRESS A NON .zlib MODEL')
 	with open(model_path, 'rb') as fp:
 		model = zlib.decompress(fp.read())
-		output_model = model_path[:-4]
+		output_model = model_path[:-5]
 		file = open(output_model,'wb')
 		# print('Saving: ',output_model)
 		file.write(model)
@@ -177,6 +179,9 @@ class Model:
 		return output
 
 class Receiver(DoSomething):
+	def __init__(self,clientID):
+		super().__init__(clientID)
+		#received
 	def notify(self, topic, msg):
 		r = msg.decode('utf-8')
 		r = json.loads(r)
@@ -188,10 +193,10 @@ class Receiver(DoSomething):
 
 if __name__ == "__main__":
 
-	client_rpi = Receiver("ClientRpi")
-	client_rpi.run()
-	idtopic = '/Group14_ML4IoT/'
-	client_rpi.myMqttClient.mySubscribe(idtopic+'prediction/')
+	#client_rpi = Receiver("ClientRpi")
+	#client_rpi.run()
+	#idtopic = '/Group14_ML4IoT/'
+	#client_rpi.myMqttClient.mySubscribe(idtopic+'prediction/')
 
 	sp, test_files, LABELS = LoadData()
 
@@ -205,11 +210,15 @@ if __name__ == "__main__":
 	communication_cost = 0
 	threshold_accuracy = 0.1
 	for t in test_files:
-		data, label, audio = sp.PreprocessAudio(t)
+		data, true_label, audio = sp.PreprocessAudio(t)
 
 		data = tf.expand_dims(data, axis=0)
 		output_layer_prediction = little_model.Evaluate(data)
-		best_predictions = tf.math.top_k(output_layer_prediction, k=2, sorted=True).values.numpy()
+		print(output_layer_prediction)
+		output_layer_prediction = tf.nn.softmax(output_layer_prediction).numpy() #[0]
+		print(output_layer_prediction)
+		#best_predictions = tf.math.top_k(output_layer_prediction, k=2, sorted=True).values.numpy()
+		#print(best_predictions)
 		#Get the 2 top predictions
 		top1 = [0,0]
 		top2 = [0,0]
@@ -219,23 +228,44 @@ if __name__ == "__main__":
 				top2 = [i,v]
 				if(top1[1]<top2[1]):
 					top1, top2 = top2, top1
-		print(output_layer_prediction)
-		print(top1,top2)
-		print(best_predictions)
 
-		if(best_predictions[0]-best_predictions>threshold_accuracy):
-			timestamp = datetime.datetime.timestamp(date_time)
+		#print(top1,top2)
+
+		if(top1[1]-top2[1]<threshold_accuracy):
+			print(f'Ask for help to the big model (diff={top1[1]-top2[1]}). Actually, the little model was: {top1[0]==true_label}')
+
+			audio_b64_bytes = base64.b64encode(audio)
+			audio_string = audio_b64_bytes.decode()
+
+			timestamp = int(datetime.datetime.now().timestamp())
 			body = {
 						'bn' : ip,
 						'bi' : int(timestamp),
-						'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio}]
+						'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string}]
 					}
 			body = json.dumps(body)
 			communication_cost += len(body)
-			client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body ,False)
+			#client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body ,False)
+
+			#Web service address
+			url = 'http://localhost:8080/'
+			#The json.dump() is done automatically
+			r = requests.put(url, json=body)
+
+			if(r.satus_code):
+				rbody = r.json()
+				label = rbody['label']
+				prob = rbody['probability']
+
+				print(f'{label} ({prob}%)')
+			else:
+				raise KeyError(r.text)
 		else:
-			if(best_predictions[0]==label):
-				accuracy += 1
+			label = top1[0]
+
+		if(label==true_label):
+			accuracy += 1
+
 	print(f'Accuracy: {(accuracy/len(test_files)*100):.3f}%')
 	print(f'Communication Cost: {(communication_cost/1024**2):.3f}')
 
