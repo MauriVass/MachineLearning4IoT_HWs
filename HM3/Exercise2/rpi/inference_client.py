@@ -139,7 +139,7 @@ def LoadData():
 	LABELS = readFile('labels.txt')[0].split(' ')
 	print(LABELS)
 
-	mfcc = False
+	mfcc = True
 	frame_length = 640  #Default 640 (mfcc=True), 256(mfcc=False)
 	frame_step = 320 #Default 320 (mfcc=True), 128(mfcc=False)
 	num_mel_bins = 40 #Default 40 (only mfcc=True)
@@ -153,24 +153,6 @@ def LoadData():
 
 	return sp, test_files, LABELS
 
-class Model:
-	def __init__(self, model_path):
-		self.model_path = model_path
-
-		if(model_path.find('zlib')>0):
-			raise KeyError('YOU CAN\'T TEST A .zlib MODEL. (Use zipping=False in Optimize() method)')
-		self.interpreter = tf.lite.Interpreter(model_path=model_path)
-		self.interpreter.allocate_tensors()
-
-		self.input_details = self.interpreter.get_input_details()
-		self.output_details = self.interpreter.get_output_details()
-
-	def Evaluate():
-		self.interpreter.set_tensor(self.input_details[0]['index'], input_data)
-		self.interpreter.invoke()
-		output = self.interpreter.get_tensor(self.output_details[0]['index'])[0]
-
-		return output
 
 class Receiver(DoSomething):
 	def __init__(self,clientID):
@@ -180,9 +162,11 @@ class Receiver(DoSomething):
 	def notify(self, topic, msg):
 		r = msg.decode('utf-8')
 		r = json.loads(r)
-		timestamp = r['bi']
-		events = r['e']
-		prediction = events[0]['v']
+		print(r)
+		timestamp = r['timestamp']
+		#events = r['e']
+		#prediction = events[0]['v']
+		prediction = r['prediction']
 		self.predictions[timestamp].append(prediction)
 
 
@@ -194,51 +178,67 @@ if __name__ == "__main__":
 	idtopic = '/Group14_ML4IoT/'
 	client_rpi.myMqttClient.mySubscribe(idtopic+'prediction/')
 
-	model_compressed = './../../' + 'KS_DSCNNTruespars0.9.tflite_W.zlib'
-	model_path = Decompress(model_compressed)
-	little_model = Model(model_path)
 
 	ip = 'http://169.254.37.210/'
-	for t in test_files:
-		data, label, audio = sp.PreprocessAudio(t)
+	for t in test_files[:3]:
+		data, label, _ = sp.PreprocessAudio(t)
 
-		audio_b64_bytes = base64.b64encode(audio)
+		audio_b64_bytes = base64.b64encode(data)
 		audio_string = audio_b64_bytes.decode()
 
+		'''
+		print(data)
+		print(type(audio_b64_bytes), len(audio_b64_bytes), audio_b64_bytes[:100])
+		print(type(audio_string),audio_string[:100])
+
+		after = audio_string.encode()
+		#print(type(after),len(after), after[:100])
+		ops = base64.b64decode(after)
+		#print(type(ops),len(ops), ops[:100])
+		hope = tf.io.decode_raw(ops,tf.float32) #encode_base64(ops)
+		#print(hope)
+		asok1 = tf.reshape(hope,[32,32,1])
+		print(asok1)
+		#exit()
+		'''
+		#print(data.shape)
 		timestamp = int(datetime.datetime.now().timestamp())
 		body = {
 					'bn' : ip,
 					'bi' : int(timestamp),
-					'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string}]
+					'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string, 'dims': list(data.shape) }]
 				}
-
+		#exit()
 		body = json.dumps(body)
 		#Avoid printing on screen the msg published (Changed MyMQTT.py file)
 		client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body, print_msg=False)
 		client_rpi.predictions[timestamp] = [label]
 
 	#Wait to all the prediction to arrive. FIND A BETTER WAY!!!!
-	time.sleep(10)
+	time.sleep(1)
 
 	accuracy = 0
+	print('Whole pred', client_rpi.predictions)
 	for k,v in client_rpi.predictions.items():
-		true_lable = v[0]
+		true_label = v[0]
 		predictions = v[1:]
 
 		major_pred = {}
+		print('Predcitions: ', predictions)
 		for p in predictions:
 			if(p in predictions):
 				predictions[p] = predictions[p] + 1
 			else:
 				predictions[p] = 0
 
-		major_pred = 0
+		best_pred = -1
 		pred_label = ''
 		for k,v in major_pred.items():
-			if(v>major_pred):
-				major_pred = v
+			if(v>best_pred):
+				best_pred = v
 				pred_label = k
-		if(pred_label==true_lable):
+		print(pred_label, true_label)
+		if(pred_label==true_label):
 			accuracy+=1
 
 	print(f'Accuracy: {(accuracy/len(test_files)*100):.3f}%')
