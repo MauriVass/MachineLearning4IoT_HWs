@@ -25,7 +25,7 @@ def Decompress(model_path):
 		raise KeyError('YOU CAN\'T DECOMPRESS A NON .zlib MODEL')
 	with open(model_path, 'rb') as fp:
 		model = zlib.decompress(fp.read())
-		output_model = model_path[:-4]
+		output_model = model_path[:-5]
 		file = open(output_model,'wb')
 		# print('Saving: ',output_model)
 		file.write(model)

@@ -54,7 +54,7 @@ class Model:
 		return output
 
 if __name__ == "__main__":
-	model_path = './../../' + 'KS_DSCNNTruespars0.9.tflite_W.'
+	model_path = './../../' + 'KS_DSCNNTruespars0.9.tflite_W'
 	model = Model(model_path)
 
 	coop_client = Receiver("Coop Client", model)
