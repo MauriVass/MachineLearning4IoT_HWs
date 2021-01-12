@@ -13,7 +13,7 @@ import os
 import requests #REST
 
 import sys #MQTT
-sys.path.insert(0, './../')
+sys.path.insert(0, './../../')
 from DoSomething import DoSomething
 
 #Set a seed to get repricable results
@@ -160,8 +160,8 @@ class Model:
 	def __init__(self, model_path):
 		self.model_path = model_path
 
-		if(model_path.find('zip')>0):
-			raise KeyError('YOU CAN\'T TEST A .zip MODEL. (Use zipping=False in Optimize() method)')
+		if(model_path.find('zlib')>0):
+			raise KeyError('YOU CAN\'T TEST A .zlib MODEL. (Use zipping=False in Optimize() method)')
 		self.interpreter = tf.lite.Interpreter(model_path=model_path)
 		self.interpreter.allocate_tensors()
 
@@ -248,8 +248,8 @@ if __name__ == "__main__":
 			communication_cost += len(body)
 			#client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body ,False)
 
-			#Web service address
-			url = 'http://localhost:8080/'
+			#Web service address (url of the server)
+			url = 'http://192.168.1.7:8080/'
 			#The json.dump() is done automatically
 			r = requests.put(url, json=body)
 
