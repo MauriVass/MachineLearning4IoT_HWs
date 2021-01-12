@@ -235,7 +235,9 @@ if __name__ == "__main__":
 		if(top1[1]-top2[1]<threshold_accuracy):
 			print(f'Ask for help to the big model (diff={top1[1]-top2[1]}). Actually, the little model was: {top1[0]==true_label}')
 
-			audio_b64_bytes = base64.b64encode(audio)
+			# audio_b64_bytes = base64.b64encode(audio)
+			audio_binary = tf.io.read_file(t)	
+			audio_b64_bytes = base64.b64encode(audio_binary.numpy())
 			audio_string = audio_b64_bytes.decode()
 
 			timestamp = int(datetime.datetime.now().timestamp())
@@ -244,8 +246,8 @@ if __name__ == "__main__":
 						'bi' : int(timestamp),
 						'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string}]
 					}
-			body = json.dumps(body)
-			communication_cost += len(body)
+			# body = json.dumps(body)
+			communication_cost += len(json.dumps(body))
 			#client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body ,False)
 
 			#Web service address (url of the server)
@@ -256,7 +258,7 @@ if __name__ == "__main__":
 			if(r.satus_code):
 				rbody = r.json()
 				label = rbody['label']
-				prob = rbody['probability']
+				prob = 1 #rbody['probability']
 
 				print(f'{label} ({prob}%)')
 			else:
@@ -270,4 +272,4 @@ if __name__ == "__main__":
 	print(f'Accuracy: {(accuracy/len(test_files)*100):.3f}%')
 	print(f'Communication Cost: {(communication_cost/1024**2):.3f}')
 
-	# client_rpi.end()
+	client_rpi.end()
