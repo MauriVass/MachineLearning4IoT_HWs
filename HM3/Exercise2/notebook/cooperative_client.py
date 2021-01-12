@@ -4,13 +4,15 @@ import json
 import wave
 import pyaudio
 import datetime
+import tensorflow as tf
+import numpy as np
 
-sys.path.insert(0, './../Exercise1')
+sys.path.insert(0, './../../')
 from DoSomething import DoSomething
 
 class Receiver(DoSomething):
 	def __init__(self,clientID, model):
-		super.__init__(clientID)
+		super().__init__(clientID)
 		self.model = model
 
 	def notify(self, topic, msg):
@@ -20,7 +22,7 @@ class Receiver(DoSomething):
 		events = r['e']
 		audio = events[0]['vd']
 
-		prediction = model.Evaluate(audio)
+		prediction = self.model.Evaluate(audio)
 		prediction - mp.argmax(prediction)
 
 		timestamp = datetime.datetime.timestamp(date_time)
@@ -30,7 +32,8 @@ class Receiver(DoSomething):
 					'e' : [{'n':'prediction', 'u':'/', 't':0, 'v': prediction}]
 				}
 		body = json.dumps(body)
-		client_rpi.myMqttClient.myPublish(idtopic+"prediction/" ,body ,False)
+		#client_rpi.myMqttClient.
+		self.myPublish(idtopic+"prediction/" ,body ,False)
 
 class Model:
 	def __init__(self, model_path):
@@ -41,8 +44,8 @@ class Model:
 		self.interpreter = tf.lite.Interpreter(model_path=model_path)
 		self.interpreter.allocate_tensors()
 
-		self,input_details = interpreter.get_input_details()
-		self,output_details = interpreter.get_output_details()
+		self.input_details = self.interpreter.get_input_details()
+		self.output_details = self.interpreter.get_output_details()
 
 	def Evaluate(self,input_data):
 		self.interpreter.set_tensor(self.input_details[0]['index'], input_data)
@@ -51,8 +54,7 @@ class Model:
 		return output
 
 if __name__ == "__main__":
-	model_compressed = './../../' + 'KS_DSCNNTruespars0.9.tflite_W.zlib'
-	model_path = Decompress(model_compressed)
+	model_path = './../../' + 'KS_DSCNNTruespars0.9.tflite_W.'
 	model = Model(model_path)
 
 	coop_client = Receiver("Coop Client", model)
