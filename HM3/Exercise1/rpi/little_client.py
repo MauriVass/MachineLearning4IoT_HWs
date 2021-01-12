@@ -139,7 +139,7 @@ def LoadData():
 	# train_files = readFile('Temp/kws_train_split.txt')
 	# validation_files = readFile('Temp/kws_val_split.txt')
 	test_files = readFile('kws_test_split.txt')
-	LABELS = readFile('labels.txt')
+	LABELS = readFile('labels.txt')[0].split(' ')
 	print(LABELS)
 
 	mfcc = True
@@ -178,17 +178,17 @@ class Model:
 
 		return output
 
-class Receiver(DoSomething):
-	def __init__(self,clientID):
-		super().__init__(clientID)
-		#received
-	def notify(self, topic, msg):
-		r = msg.decode('utf-8')
-		r = json.loads(r)
-		events = r['e']
-		if(len(events)==1):
-			prediction = events[0]['v']
-			#Then how to pass the result to main???
+# class Receiver(DoSomething):
+# 	def __init__(self,clientID):
+# 		super().__init__(clientID)
+# 		#received
+# 	def notify(self, topic, msg):
+# 		r = msg.decode('utf-8')
+# 		r = json.loads(r)
+# 		events = r['e']
+# 		if(len(events)==1):
+# 			prediction = events[0]['v']
+# 			#Then how to pass the result to main???
 
 
 if __name__ == "__main__":
@@ -214,11 +214,12 @@ if __name__ == "__main__":
 
 		data = tf.expand_dims(data, axis=0)
 		output_layer_prediction = little_model.Evaluate(data)
-		print(output_layer_prediction)
+		# print(output_layer_prediction)
 		output_layer_prediction = tf.nn.softmax(output_layer_prediction).numpy() #[0]
-		print(output_layer_prediction)
+		# print(output_layer_prediction)
 		#best_predictions = tf.math.top_k(output_layer_prediction, k=2, sorted=True).values.numpy()
 		#print(best_predictions)
+
 		#Get the 2 top predictions
 		top1 = [0,0]
 		top2 = [0,0]
@@ -269,4 +270,4 @@ if __name__ == "__main__":
 	print(f'Accuracy: {(accuracy/len(test_files)*100):.3f}%')
 	print(f'Communication Cost: {(communication_cost/1024**2):.3f}')
 
-	client_rpi.end()
+	# client_rpi.end()
