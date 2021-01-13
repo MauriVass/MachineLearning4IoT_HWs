@@ -64,11 +64,11 @@ class SignalPreprocessor:
 		parts = tf.strings.split(file_path, os.path.sep)
 		label = parts[-2]
 		label_id = tf.argmax(label == self.labels)
-		audio_bynary = tf.io.read_file(file_path)
-		audio, _ = tf.audio.decode_wav(audio_bynary)
+		audio_binary = tf.io.read_file(file_path)
+		audio, _ = tf.audio.decode_wav(audio_binary)
 		#print('Sampling: ', np.array(r))
 		audio = tf.squeeze(audio, axis=1)
-		return audio, label_id
+		return audio, audio_binary, label_id
 
 	def pad(self, audio):
 		zero_padding = tf.zeros(self.sampling_rate - tf.shape(audio), dtype=tf.float32)
@@ -95,25 +95,25 @@ class SignalPreprocessor:
 		return mfccs
 
 	def preprocess_with_stft(self, file_path):
-		audio, label = self.read(file_path)
+		audio, audio_binary, label = self.read(file_path)
 		audio = self.pad(audio)
 		spectrogram = self.get_spectrogram(audio)
 		spectrogram = tf.expand_dims(spectrogram, -1)
 		spectrogram  = tf.image.resize(spectrogram, [self.image_size,self.image_size])
-		return spectrogram, label, audio
+		return spectrogram, label, audio_binary
 
 	def preprocess_with_mfcc(self, file_path):
-		audio, label = self.read(file_path)
+		audio, audio_binary, label = self.read(file_path)
 		audio = self.pad(audio)
 		spectrogram = self.get_spectrogram(audio)
 		mfccs = self.get_mfccs(spectrogram)
 		mfccs = tf.expand_dims(mfccs, -1)
-		return mfccs, label, audio
+		return mfccs, label, audio_binary
 
 	def PreprocessAudio(self, file):
-		data, label, audio = self.preprocess(file)
+		data, label, audio_binary = self.preprocess(file)
 
-		return data, label, audio
+		return data, label.numpy(), audio_binary
 
 def readFile(file):
 	elems = []
@@ -200,23 +200,26 @@ if __name__ == "__main__":
 
 	sp, test_files, LABELS = LoadData()
 
-	model_compressed = 'models/' + 'KS_DSCNNTruespars0.9.tflite_W.zlib'
-	model_path = Decompress(model_compressed)
+	#model_compressed = 'models/' + 'KS_DSCNNTruespars0.9.tflite_W.zlib'
+	model_path = 'models/KS_DSCNNTruespars0.9.tflite_W' #Decompress(model_compressed)
 	little_model = Model(model_path)
 
 
 	ip = 'http://169.254.37.210/'
+	acc_little = 0 #to remove
+	sample_little = 0 #to remove
 	accuracy = 0
 	communication_cost = 0
+	communication_requests = 0 #To remove
 	threshold_accuracy = 0.1
 	for t in test_files:
-		data, true_label, audio = sp.PreprocessAudio(t)
+		data, true_label, audio_binary = sp.PreprocessAudio(t)
 
 		data = tf.expand_dims(data, axis=0)
 		output_layer_prediction = little_model.Evaluate(data)
 		# print(output_layer_prediction)
 		output_layer_prediction = tf.nn.softmax(output_layer_prediction).numpy() #[0]
-		# print(output_layer_prediction)
+		#print(output_layer_prediction)
 		#best_predictions = tf.math.top_k(output_layer_prediction, k=2, sorted=True).values.numpy()
 		#print(best_predictions)
 
@@ -233,10 +236,8 @@ if __name__ == "__main__":
 		#print(top1,top2)
 
 		if(top1[1]-top2[1]<threshold_accuracy):
-			print(f'Ask for help to the big model (diff={top1[1]-top2[1]}). Actually, the little model was: {top1[0]==true_label}')
+			print(f'Ask for help to the big model (diff={(top1[1]-top2[1]):.3f}). Actually, the little model was: {top1[0]==true_label}')
 
-			# audio_b64_bytes = base64.b64encode(audio)
-			audio_binary = tf.io.read_file(t)	
 			audio_b64_bytes = base64.b64encode(audio_binary.numpy())
 			audio_string = audio_b64_bytes.decode()
 
@@ -246,8 +247,9 @@ if __name__ == "__main__":
 						'bi' : int(timestamp),
 						'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string}]
 					}
-			# body = json.dumps(body)
+
 			communication_cost += len(json.dumps(body))
+			communication_requests += 1
 			#client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body ,False)
 
 			#Web service address (url of the server)
@@ -255,21 +257,27 @@ if __name__ == "__main__":
 			#The json.dump() is done automatically
 			r = requests.put(url, json=body)
 
-			if(r.satus_code):
+			if(r.status_code==200):
 				rbody = r.json()
 				label = rbody['label']
-				prob = 1 #rbody['probability']
+				prob = rbody['probability']
 
-				print(f'{label} ({prob}%)')
+				#To remove (to have some idea of what the f*** is going on)
+				#print(f'Big: {label} ({prob}%), Small: {top1[0]} ({top1[1]:.4f}%), True label: {true_label}, is big right? {label==str(true_label)}, is little right? {top1[0]==str(label)}')
 			else:
 				raise KeyError(r.text)
 		else:
+			sample_little += 1 #To remove (just to check little model performances)
 			label = top1[0]
+			if(label==true_label): #To remove
+				acc_little += 1
 
-		if(label==true_label):
+		#print(label,true_label)
+		if(label==str(true_label)):
 			accuracy += 1
 
-	print(f'Accuracy: {(accuracy/len(test_files)*100):.3f}%')
-	print(f'Communication Cost: {(communication_cost/1024**2):.3f}')
+	print(f'Accuracy (little): {( (acc_little/sample_little) *100 ):.3f}% ({acc_little})/({sample_little})')
+	print(f'Accuracy: { ((accuracy/len(test_files))*100 ):.3f}% ({accuracy})/({len(test_files)})')
+	print(f'Communication Cost: {(communication_cost/1024**2):.3f}. Num requests: {communication_requests}')
 
-	client_rpi.end()
+	#client_rpi.end()
