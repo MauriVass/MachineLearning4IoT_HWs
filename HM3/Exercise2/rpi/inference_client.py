@@ -160,14 +160,18 @@ class Receiver(DoSomething):
 		self.predictions = {}
 
 	def notify(self, topic, msg):
+		#To do checks on input
 		r = msg.decode('utf-8')
 		r = json.loads(r)
-		print(r)
-		timestamp = r['timestamp']
-		#events = r['e']
-		#prediction = events[0]['v']
+		#print(r)
+		id = int(r['id'])
 		prediction = r['prediction']
-		self.predictions[timestamp].append(prediction)
+
+		#print('Predction: ', prediction)
+		#print('Before: ', self.predictions[id])
+		self.predictions[id].append(prediction)
+		#print('After: ', self.predictions[id])
+		#print()
 
 
 if __name__ == "__main__":
@@ -180,7 +184,9 @@ if __name__ == "__main__":
 
 
 	ip = 'http://169.254.37.210/'
-	for t in test_files[:3]:
+	total_test_size = len(test_files)
+	for i,t in enumerate(test_files):
+		print(f'Progress: {i}/{total_test_size}',end='\r')
 		data, label, _ = sp.PreprocessAudio(t)
 
 		audio_b64_bytes = base64.b64encode(data)
@@ -206,41 +212,46 @@ if __name__ == "__main__":
 		body = {
 					'bn' : ip,
 					'bi' : int(timestamp),
-					'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string, 'dims': list(data.shape) }]
+					'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string, 'dims': list(data.shape), 'id': i }]
 				}
 		#exit()
 		body = json.dumps(body)
 		#Avoid printing on screen the msg published (Changed MyMQTT.py file)
 		client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body, print_msg=False)
-		client_rpi.predictions[timestamp] = [label]
+		#Convert label to string since the other clients send the prediction as string
+		client_rpi.predictions[i] = [str(label.numpy())]
 
 	#Wait to all the prediction to arrive. FIND A BETTER WAY!!!!
-	time.sleep(1)
+	time.sleep(10)
 
 	accuracy = 0
-	print('Whole pred', client_rpi.predictions)
+	print('Whole pred dict: ', client_rpi.predictions)
 	for k,v in client_rpi.predictions.items():
 		true_label = v[0]
+		#print('Ture label', type(true_label))
 		predictions = v[1:]
 
 		major_pred = {}
-		print('Predcitions: ', predictions)
+		#print('Predcitions: ', predictions)
 		for p in predictions:
-			if(p in predictions):
-				predictions[p] = predictions[p] + 1
+			if(p in major_pred.keys()):
+				major_pred[p] = major_pred[p] + 1
 			else:
-				predictions[p] = 0
+				major_pred[p] = 1
 
-		best_pred = -1
+		pred_votes = -1
 		pred_label = ''
 		for k,v in major_pred.items():
-			if(v>best_pred):
-				best_pred = v
+			if(v>pred_votes):
+				pred_votes = v
 				pred_label = k
-		print(pred_label, true_label)
+
+		print(f'{major_pred}, Winning label: {pred_label} with {pred_votes} votes. (True label: {true_label}, Correct? {pred_label==true_label})')
+		#print(pred_label, true_label, type(pred_label), type(true_label))
+
 		if(pred_label==true_label):
 			accuracy+=1
 
-	print(f'Accuracy: {(accuracy/len(test_files)*100):.3f}%')
+	print(f'Accuracy: {(accuracy/total_test_size*100):.3f}%')
 
 	client_rpi.end()
