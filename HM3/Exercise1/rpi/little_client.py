@@ -208,6 +208,8 @@ if __name__ == "__main__":
 	ip = 'http://169.254.37.210/'
 	acc_little = 0 #to remove
 	sample_little = 0 #to remove
+	acc_big = 0 #to remove
+	sample_big = 0 #to remove
 	accuracy = 0
 	communication_cost = 0
 	communication_requests = 0 #To remove
@@ -236,7 +238,7 @@ if __name__ == "__main__":
 		#print(top1,top2)
 
 		if(top1[1]-top2[1]<threshold_accuracy):
-			print(f'Ask for help to the big model (diff={(top1[1]-top2[1]):.3f}). Actually, the little model was: {top1[0]==true_label}')
+			#print(f'Ask for help to the big model (diff={(top1[1]-top2[1]):.3f}). Actually, the little model was: {top1[0]==true_label}')
 
 			audio_b64_bytes = base64.b64encode(audio_binary.numpy())
 			audio_string = audio_b64_bytes.decode()
@@ -262,21 +264,27 @@ if __name__ == "__main__":
 				label = rbody['label']
 				prob = rbody['probability']
 
+				sample_big += 1 #To remove (just to check little model performances)
+				#label = top1[0]
+				if(label==str(true_label)): #To remove
+					acc_big += 1
+
 				#To remove (to have some idea of what the f*** is going on)
-				#print(f'Big: {label} ({prob}%), Small: {top1[0]} ({top1[1]:.4f}%), True label: {true_label}, is big right? {label==str(true_label)}, is little right? {top1[0]==str(label)}')
+				print(f'Big: {label} ({prob}%), Small: {top1[0]} ({top1[1]:.4f}%), True label: {true_label}, is big right? {label==str(true_label)}, is little right? {top1[0]==str(label)}')
 			else:
 				raise KeyError(r.text)
 		else:
 			sample_little += 1 #To remove (just to check little model performances)
 			label = top1[0]
-			if(label==true_label): #To remove
+			if(label==str(true_label)): #To remove
 				acc_little += 1
 
 		#print(label,true_label)
 		if(label==str(true_label)):
 			accuracy += 1
 
-	print(f'Accuracy (little): {( (acc_little/sample_little) *100 ):.3f}% ({acc_little})/({sample_little})')
+	print(f'Accuracy (little): {( (acc_little/sample_little) *100 ):.3f}% ({acc_little}/{sample_little})')
+	print(f'Accuracy (big): {( (acc_big/sample_big) *100 ):.3f}% ({acc_big}/{sample_big})')
 	print(f'Accuracy: { ((accuracy/len(test_files))*100 ):.3f}% ({accuracy})/({len(test_files)})')
 	print(f'Communication Cost: {(communication_cost/1024**2):.3f}. Num requests: {communication_requests}')
 
