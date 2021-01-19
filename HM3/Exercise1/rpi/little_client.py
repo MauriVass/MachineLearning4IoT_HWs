@@ -12,16 +12,12 @@ import zlib
 import os
 import requests #REST
 
-import sys #MQTT
-sys.path.insert(0, './../../')
-from DoSomething import DoSomething
-
 #Set a seed to get repricable results
 seed = 42
 tf.random.set_seed(seed)
 np.random.seed(seed)
 
-# Decompress TO REMOVE OR NOT IDK
+# Decompresss
 def Decompress(model_path):
 	if(model_path.find('zlib')<0):
 		raise KeyError('YOU CAN\'T DECOMPRESS A NON .zlib MODEL')
@@ -143,7 +139,7 @@ def LoadData():
 	print(LABELS)
 
 	mfcc = True
-	frame_length = 640  #Default 640 (mfcc=True), 256(mfcc=False)
+	frame_length = 480  #Default 640 (mfcc=True), 256(mfcc=False)
 	frame_step = 320 #Default 320 (mfcc=True), 128(mfcc=False)
 	num_mel_bins = 40 #Default 40 (only mfcc=True)
 	num_coefficients = 10 #Default 10 (only mfcc=True)
@@ -178,30 +174,12 @@ class Model:
 
 		return output
 
-# class Receiver(DoSomething):
-# 	def __init__(self,clientID):
-# 		super().__init__(clientID)
-# 		#received
-# 	def notify(self, topic, msg):
-# 		r = msg.decode('utf-8')
-# 		r = json.loads(r)
-# 		events = r['e']
-# 		if(len(events)==1):
-# 			prediction = events[0]['v']
-# 			#Then how to pass the result to main???
-
 
 if __name__ == "__main__":
-
-	#client_rpi = Receiver("ClientRpi")
-	#client_rpi.run()
-	#idtopic = '/Group14_ML4IoT/'
-	#client_rpi.myMqttClient.mySubscribe(idtopic+'prediction/')
-
 	sp, test_files, LABELS = LoadData()
 
-	#model_compressed = 'models/' + 'KS_DSCNNTruespars0.9.tflite_W.zlib'
-	model_path = 'models/KS_DSCNNTruespars0.9.tflite_W' #Decompress(model_compressed)
+	#model_compressed = 'models/' + 'littleDTrueA0_234FL480FS320NM10.tflite.zlib' #'Group14_kws_c.tflite.zlib'
+	model_path = 'models/littleDTrueA0_234FL480FS320NM10.tflite' #Decompress(model_compressed)
 	little_model = Model(model_path)
 
 
@@ -213,19 +191,17 @@ if __name__ == "__main__":
 	accuracy = 0
 	communication_cost = 0
 	communication_requests = 0 #To remove
-	threshold_accuracy = 0.1
+	threshold_accuracy = 0.4
 	for t in test_files:
 		data, true_label, audio_binary = sp.PreprocessAudio(t)
+		true_label = str(true_label)
 
 		data = tf.expand_dims(data, axis=0)
 		output_layer_prediction = little_model.Evaluate(data)
-		# print(output_layer_prediction)
-		output_layer_prediction = tf.nn.softmax(output_layer_prediction).numpy() #[0]
-		#print(output_layer_prediction)
-		#best_predictions = tf.math.top_k(output_layer_prediction, k=2, sorted=True).values.numpy()
-		#print(best_predictions)
+		output_layer_prediction = tf.nn.softmax(output_layer_prediction).numpy()
 
 		#Get the 2 top predictions
+		# [label, confidence]
 		top1 = [0,0]
 		top2 = [0,0]
 		for i ,v in enumerate(output_layer_prediction):
@@ -235,11 +211,9 @@ if __name__ == "__main__":
 				if(top1[1]<top2[1]):
 					top1, top2 = top2, top1
 
-		#print(top1,top2)
+		#print(top1,top2, np.argmax(output_layer_prediction))
 
 		if(top1[1]-top2[1]<threshold_accuracy):
-			#print(f'Ask for help to the big model (diff={(top1[1]-top2[1]):.3f}). Actually, the little model was: {top1[0]==true_label}')
-
 			audio_b64_bytes = base64.b64encode(audio_binary.numpy())
 			audio_string = audio_b64_bytes.decode()
 
@@ -252,7 +226,6 @@ if __name__ == "__main__":
 
 			communication_cost += len(json.dumps(body))
 			communication_requests += 1
-			#client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body ,False)
 
 			#Web service address (url of the server)
 			url = 'http://192.168.1.7:8080/'
@@ -265,27 +238,23 @@ if __name__ == "__main__":
 				prob = rbody['probability']
 
 				sample_big += 1 #To remove (just to check little model performances)
-				#label = top1[0]
-				if(label==str(true_label)): #To remove
+				if(label==true_label): #To remove
 					acc_big += 1
 
-				#To remove (to have some idea of what the f*** is going on)
-				print(f'Big: {label} ({prob}%), Small: {top1[0]} ({top1[1]:.4f}%), True label: {true_label}, is big right? {label==str(true_label)}, is little right? {top1[0]==str(label)}')
+				print(f'B: {label} ({prob}%), S: {top1[0]} ({top1[1]:.4f}%), True: {true_label}, B right? {label==true_label}, L right? {str(top1[0])==true_label}')
 			else:
 				raise KeyError(r.text)
 		else:
 			sample_little += 1 #To remove (just to check little model performances)
-			label = top1[0]
-			if(label==str(true_label)): #To remove
+			label = str(top1[0])
+			if(label==true_label): #To remove
 				acc_little += 1
 
-		#print(label,true_label)
-		if(label==str(true_label)):
+		#print(label,true_label,label==true_label)
+		if(label==true_label):
 			accuracy += 1
 
-	print(f'Accuracy (little): {( (acc_little/sample_little) *100 ):.3f}% ({acc_little}/{sample_little})')
-	print(f'Accuracy (big): {( (acc_big/sample_big) *100 ):.3f}% ({acc_big}/{sample_big})')
-	print(f'Accuracy: { ((accuracy/len(test_files))*100 ):.3f}% ({accuracy})/({len(test_files)})')
+	print(f'Accuracy (little): {( (acc_little/(sample_little+0.01)) *100 ):.3f}% ({acc_little}/{sample_little})')
+	print(f'Accuracy (big): {( (acc_big/(sample_big+0.01)) *100 ):.3f}% ({acc_big}/{sample_big})')
+	print(f'Accuracy: { ((accuracy/len(test_files))*100 ):.3f}% ({accuracy}/{len(test_files)})')
 	print(f'Communication Cost: {(communication_cost/1024**2):.3f}. Num requests: {communication_requests}')
-
-	#client_rpi.end()
