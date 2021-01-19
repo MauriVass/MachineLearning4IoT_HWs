@@ -158,20 +158,20 @@ class Receiver(DoSomething):
 	def __init__(self,clientID):
 		super().__init__(clientID)
 		self.predictions = {}
+		self.wait = False
 
 	def notify(self, topic, msg):
 		#To do checks on input
 		r = msg.decode('utf-8')
 		r = json.loads(r)
-		#print(r)
+		if('id' not in r or 'prediction' not in r):
+			print("ANSWER PROBLEMS!! REQUIRED: ['id':X, 'prediction':Y]. RECEIVED:", R, ' CLOSING APPLICATION!')
+			exit()
 		id = int(r['id'])
 		prediction = r['prediction']
 
-		#print('Predction: ', prediction)
-		#print('Before: ', self.predictions[id])
+		#Append the answer to the dict (Thanks to 'id' later answers are accepted too)
 		self.predictions[id].append(prediction)
-		#print('After: ', self.predictions[id])
-		#print()
 
 
 if __name__ == "__main__":
@@ -180,77 +180,78 @@ if __name__ == "__main__":
 	client_rpi = Receiver("ClientRpi")
 	client_rpi.run()
 	idtopic = '/Group14_ML4IoT/'
-	client_rpi.myMqttClient.mySubscribe(idtopic+'prediction/')
+	client_rpi.myMqttClient.mySubscribe(idtopic+'+/prediction/')
 
 
+	#ip of this(rpi) machine
 	ip = 'http://169.254.37.210/'
 	total_test_size = len(test_files)
 	for i,t in enumerate(test_files):
-		print(f'Progress: {i}/{total_test_size}',end='\r')
+		print(f'Progress: {i+1}/{total_test_size}',end='\r')
 		data, label, _ = sp.PreprocessAudio(t)
 
 		audio_b64_bytes = base64.b64encode(data)
 		audio_string = audio_b64_bytes.decode()
 
-		'''
-		print(data)
-		print(type(audio_b64_bytes), len(audio_b64_bytes), audio_b64_bytes[:100])
-		print(type(audio_string),audio_string[:100])
-
-		after = audio_string.encode()
-		#print(type(after),len(after), after[:100])
-		ops = base64.b64decode(after)
-		#print(type(ops),len(ops), ops[:100])
-		hope = tf.io.decode_raw(ops,tf.float32) #encode_base64(ops)
-		#print(hope)
-		asok1 = tf.reshape(hope,[32,32,1])
-		print(asok1)
-		#exit()
-		'''
-		#print(data.shape)
 		timestamp = int(datetime.datetime.now().timestamp())
 		body = {
 					'bn' : ip,
 					'bi' : int(timestamp),
-					'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string, 'dims': list(data.shape), 'id': i }]
+					'e' : [{'n':'audio', 'u':'/', 't':0, 'vd': audio_string, 'id': i }]
 				}
-		#exit()
 		body = json.dumps(body)
+
 		#Avoid printing on screen the msg published (Changed MyMQTT.py file)
 		client_rpi.myMqttClient.myPublish(idtopic+"audio/" ,body, print_msg=False)
 		#Convert label to string since the other clients send the prediction as string
 		client_rpi.predictions[i] = [str(label.numpy())]
 
-	#Wait to all the prediction to arrive. FIND A BETTER WAY!!!!
-	time.sleep(10)
+		#For every request wait some time, so that all answers are received by the end of the loop
+		time.sleep(.05)
+		if(total_test_size-i<10):
+			time.sleep(0.5)
+	time.sleep(1)
+	time.sleep(1)
+	#Expected execution time: 800*0.05 + 10*0.5 + 1 = 46 s
+	'''
+	This may or not may be a good solution depending on the case and requirements:
+		-It works well if we are not really interested in all the predictions but we accept to lose some of them for in order to have a faster answer;
+		-It may not work well if the connection conditions are not very good
+	'''
 
 	accuracy = 0
-	print('Whole pred dict: ', client_rpi.predictions)
+	#client_rpi.prediction is a dict with: key -> the audio sample line (number of line from the file kws_test_split.txt), value -> an array of length: 1 + N (true + predictions)
 	for k,v in client_rpi.predictions.items():
-		true_label = v[0]
-		#print('Ture label', type(true_label))
-		predictions = v[1:]
+		if(len(v)!=1+3): #True label + N coop clients
+			print('Not Received: ', k,v)
+			#Here there should be some actions: resend, just do not consider them, ...; but it is not required
+		else:
+			#The true lable is the first element of the array
+			true_label = v[0]
+			#The predictions are all other elements
+			predictions = v[1:]
 
-		major_pred = {}
-		#print('Predcitions: ', predictions)
-		for p in predictions:
-			if(p in major_pred.keys()):
-				major_pred[p] = major_pred[p] + 1
-			else:
-				major_pred[p] = 1
+			#Aggragate votes
+			major_pred = {}
+			for p in predictions:
+				if(p in major_pred.keys()):
+					major_pred[p] = major_pred[p] + 1
+				else:
+					major_pred[p] = 1
 
-		pred_votes = -1
-		pred_label = ''
-		for k,v in major_pred.items():
-			if(v>pred_votes):
-				pred_votes = v
-				pred_label = k
+			#Get the most voted label
+			pred_votes = -1
+			pred_label = ''
+			for k1,v1 in major_pred.items():
+				if(v1>pred_votes):
+					pred_votes = v1
+					pred_label = k1
 
-		print(f'{major_pred}, Winning label: {pred_label} with {pred_votes} votes. (True label: {true_label}, Correct? {pred_label==true_label})')
-		#print(pred_label, true_label, type(pred_label), type(true_label))
+			#A feedback on what happens
+			#print(f'{k} {major_pred}, Winning label: {pred_label} with {pred_votes} votes. (True label: {true_label}, Correct? {pred_label==true_label})')
 
-		if(pred_label==true_label):
-			accuracy+=1
+			if(pred_label==true_label):
+				accuracy+=1
 
 	print(f'Accuracy: {(accuracy/total_test_size*100):.3f}%')
 
