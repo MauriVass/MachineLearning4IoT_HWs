@@ -1,0 +1,16 @@
+bigDTrueA1_5FL640FS320NM10.tflite_W0.936
+Solved the first exercise (notebook)
+
+LITTLE
+model=dscnn
+mfcc=True
+quantization=w
+alpha=0.234
+sparsity=None
+
+BIG
+model = 'DSCNN'
+mfcc = True
+alpha = 1.5
+sparsity = None
+quantization=w
