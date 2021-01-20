@@ -178,7 +178,7 @@ class Model:
 if __name__ == "__main__":
 	sp, test_files, LABELS = LoadData()
 
-	#model_compressed = 'models/' + 'littleDTrueA0_234FL480FS320NM10.tflite.zlib' #'Group14_kws_c.tflite.zlib'
+	model_compressed = 'models/littleDTrueA0_234FL480FS320NM10.tflite'
 	model_path = 'models/littleDTrueA0_234FL480FS320NM10.tflite' #Decompress(model_compressed)
 	little_model = Model(model_path)
 
