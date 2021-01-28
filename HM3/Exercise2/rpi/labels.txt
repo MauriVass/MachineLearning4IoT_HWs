@@ -1,1 +1,0 @@
-down stop right left up yes no go
